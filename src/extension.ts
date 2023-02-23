@@ -1,25 +1,118 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+// import {sftp}  from 'ssh2-sftp-client';
+import Client = require('ssh2-sftp-client');
+import { createReadStream, readdirSync, readFileSync } from 'fs';
+import path = require('path');
+import { host, password, privateKey, username } from './test';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+let putStatusBarItem: vscode.StatusBarItem;
+let getStatusBarItem: vscode.StatusBarItem;
+
+const sftp = new Client('getnput');
+
 export function activate(context: vscode.ExtensionContext) {
+  console.log('GetNPut is now active!');
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "getnput" is now active!');
+  context.subscriptions.push(
+    vscode.commands.registerCommand('getnput.cwd', async () => {
+      await sftp.connect({
+        host: host,
+        username: username,
+        password: password,
+        privateKey: privateKey,
+      });
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('getnput.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from getnput!');
-	});
+      try {
+        const cwd = await sftp.cwd();
+      } catch (err: any) {
+        vscode.window.showErrorMessage(`Error: ${err.message}`);
+        console.log(err);
+      } finally {
+        await sftp.end();
+      }
+    })
+  );
 
-	context.subscriptions.push(disposable);
+  context.subscriptions.push(
+    vscode.commands.registerCommand('getnput.put', async () => {
+      if (vscode.window.activeTextEditor === undefined) {
+        vscode.window.showErrorMessage('GetNPut: No file open');
+        return;
+      }
+
+      await sftp.connect({
+        host: host,
+        username: username,
+        password: password,
+        privateKey: privateKey,
+      });
+
+      const sCwd = await sftp.cwd();
+
+      const relative = path.relative(
+        vscode.workspace.workspaceFolders![0].uri.path,
+        vscode.window.activeTextEditor?.document.uri.path ?? ''
+      );
+
+      console.log(
+        'Putting:',
+        vscode.window.activeTextEditor?.document.uri.path,
+        'at',
+        path.join(sCwd, relative)
+      );
+
+      vscode.window.showInformationMessage(
+        `Putting: ${relative} at ${path.join(sCwd, relative)}`
+      );
+
+      let data = readFileSync(
+        vscode.window.activeTextEditor?.document.uri.path
+      );
+
+      try {
+        const exists = await !sftp.exists(path.join(sCwd, relative));
+        console.log(exists);
+        if (!exists) {
+          console.log('test');
+          await sftp.mkdir(path.dirname(path.join(sCwd, relative)), true);
+        }
+
+        const msg = await sftp.put(data, path.join(sCwd, relative));
+        vscode.window.showInformationMessage(`Uploaded ${relative}`);
+        console.log(msg);
+      } catch (err: any) {
+        console.log(err);
+        console.log('test');
+        vscode.window.showErrorMessage(`Error: ${err.message}`);
+      } finally {
+        await sftp.end();
+      }
+    })
+  );
+
+  putStatusBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    100
+  );
+
+  getStatusBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    100
+  );
+
+  getStatusBarItem.command = 'getnput.get';
+  context.subscriptions.push(getStatusBarItem);
+  getStatusBarItem.text = '$(arrow-down)';
+  getStatusBarItem.tooltip = 'GetNPut: Get File';
+  getStatusBarItem.show();
+
+  putStatusBarItem.command = 'getnput.put';
+  context.subscriptions.push(putStatusBarItem);
+  putStatusBarItem.text = '$(arrow-up) GnP';
+  putStatusBarItem.tooltip = 'GetNPut: Put File';
+  putStatusBarItem.show();
 }
 
 // This method is called when your extension is deactivated
