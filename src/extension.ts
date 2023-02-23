@@ -1,11 +1,9 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-// import {sftp}  from 'ssh2-sftp-client';
 import Client = require('ssh2-sftp-client');
-import { createReadStream, readdirSync, readFileSync } from 'fs';
 import path = require('path');
-import { host, password, privateKey, username } from './test';
+import * as test from './test';
 
 let putStatusBarItem: vscode.StatusBarItem;
 let getStatusBarItem: vscode.StatusBarItem;
@@ -18,10 +16,10 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('getnput.cwd', async () => {
       await sftp.connect({
-        host: host,
-        username: username,
-        password: password,
-        privateKey: privateKey,
+        host: test.host,
+        username: test.username,
+        password: test.password,
+        privateKey: test.privateKey,
       });
 
       try {
@@ -43,48 +41,43 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       await sftp.connect({
-        host: host,
-        username: username,
-        password: password,
-        privateKey: privateKey,
+        host: test.host,
+        username: test.username,
+        password: test.password,
+        privateKey: test.privateKey,
       });
-
-      const sCwd = await sftp.cwd();
 
       const relative = path.relative(
         vscode.workspace.workspaceFolders![0].uri.path,
         vscode.window.activeTextEditor?.document.uri.path ?? ''
       );
 
+      const remoteDir = path.join(test.workingDir, relative);
+
       console.log(
         'Putting:',
         vscode.window.activeTextEditor?.document.uri.path,
         'at',
-        path.join(sCwd, relative)
+        remoteDir
       );
 
       vscode.window.showInformationMessage(
-        `Putting: ${relative} at ${path.join(sCwd, relative)}`
-      );
-
-      let data = readFileSync(
-        vscode.window.activeTextEditor?.document.uri.path
+        `Putting: ${relative} at ${remoteDir}`
       );
 
       try {
-        const exists = await !sftp.exists(path.join(sCwd, relative));
-        console.log(exists);
-        if (!exists) {
-          console.log('test');
-          await sftp.mkdir(path.dirname(path.join(sCwd, relative)), true);
+        if (!(await sftp.exists(remoteDir))) {
+          await sftp.mkdir(path.dirname(remoteDir), true);
         }
 
-        const msg = await sftp.put(data, path.join(sCwd, relative));
+        const msg = await sftp.fastPut(
+          vscode.window.activeTextEditor?.document.uri.path,
+          remoteDir
+        );
         vscode.window.showInformationMessage(`Uploaded ${relative}`);
         console.log(msg);
       } catch (err: any) {
         console.log(err);
-        console.log('test');
         vscode.window.showErrorMessage(`Error: ${err.message}`);
       } finally {
         await sftp.end();
