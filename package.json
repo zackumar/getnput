@@ -24,13 +24,49 @@
         "command": "getnput.put",
         "category": "GetNPut",
         "title": "Put Current File on Remote Server"
+      },
+      {
+        "command": "getnput.refresh",
+        "title": "Refresh",
+        "category": "GetNPut",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "getnput.test",
+        "title": "Test",
+        "category": "GetNPut",
+        "icon": "$(refresh)"
       }
     ],
-    "views": {
-      "explorer": [
+    "viewsContainers": {
+      "activitybar": [
         {
-          "id": "getnput.quickaccess",
-          "name": "GetNPut"
+          "id": "getnput",
+          "title": "GetNPut",
+          "icon": "$(remote)"
+        }
+      ]
+    },
+    "views": {
+      "getnput": [
+        {
+          "type": "tree",
+          "id": "sftpExplorer",
+          "name": "Remote Explorer"
+        },
+        {
+          "type": "webview",
+          "id": "sftpSettings",
+          "name": "GetNPut Settings"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "getnput.refresh",
+          "when": "view == sftpExplorer",
+          "group": "navigation"
         }
       ]
     }

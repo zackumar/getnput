@@ -4,13 +4,38 @@ import * as vscode from 'vscode';
 import Client = require('ssh2-sftp-client');
 import path = require('path');
 import * as test from './test';
+import { RemoteFileExplorer, SftpModel } from './remotefileexplorer';
+import { ColorsViewProvider } from './settings';
 
 let putStatusBarItem: vscode.StatusBarItem;
 let getStatusBarItem: vscode.StatusBarItem;
 
 const sftp = new Client('getnput');
 
+const model = new SftpModel({
+  host: test.host,
+  user: test.username,
+  privateKey: test.privateKey,
+  remoteDir: test.workingDir,
+});
+
 export function activate(context: vscode.ExtensionContext) {
+  const remoteFileExplorer = new RemoteFileExplorer(context, {
+    host: test.host,
+    user: test.username,
+    privateKey: test.privateKey,
+    remoteDir: test.workingDir,
+  });
+
+  const provider = new ColorsViewProvider(context.extensionUri);
+
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      ColorsViewProvider.viewType,
+      provider
+    )
+  );
+
   console.log('GetNPut is now active!');
 
   context.subscriptions.push(
@@ -24,6 +49,9 @@ export function activate(context: vscode.ExtensionContext) {
 
       try {
         const cwd = await sftp.cwd();
+        vscode.window.showInformationMessage(
+          `Current working directory: ${cwd}`
+        );
       } catch (err: any) {
         vscode.window.showErrorMessage(`Error: ${err.message}`);
         console.log(err);
@@ -76,6 +104,8 @@ export function activate(context: vscode.ExtensionContext) {
         );
         vscode.window.showInformationMessage(`Uploaded ${relative}`);
         console.log(msg);
+
+        remoteFileExplorer.refresh();
       } catch (err: any) {
         console.log(err);
         vscode.window.showErrorMessage(`Error: ${err.message}`);
