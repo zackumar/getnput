@@ -4,34 +4,40 @@ import * as vscode from 'vscode';
 import Client = require('ssh2-sftp-client');
 import path = require('path');
 import * as test from './test';
-import { RemoteFileExplorer, SftpModel } from './remotefileexplorer';
-import { ColorsViewProvider } from './settings';
+import { RemoteFileExplorer } from './remotefileexplorer';
+import { SettingViewProvider } from './settings';
+import { getHosts, SftpModel } from './sftpModel';
 
 let putStatusBarItem: vscode.StatusBarItem;
 let getStatusBarItem: vscode.StatusBarItem;
 
 const sftp = new Client('getnput');
 
-const model = new SftpModel({
-  host: test.host,
-  user: test.username,
-  privateKey: test.privateKey,
-  remoteDir: test.workingDir,
-});
+let model: SftpModel;
 
 export function activate(context: vscode.ExtensionContext) {
-  const remoteFileExplorer = new RemoteFileExplorer(context, {
-    host: test.host,
-    user: test.username,
+  context.workspaceState.update('getnput.host', test.host);
+  const host = context.workspaceState.get('getnput.host') as string;
+
+  model = new SftpModel({
+    host: host,
+    username: test.username,
     privateKey: test.privateKey,
     remoteDir: test.workingDir,
   });
 
-  const provider = new ColorsViewProvider(context.extensionUri);
+  const remoteFileExplorer = new RemoteFileExplorer(context, {
+    host: host,
+    username: test.username,
+    privateKey: test.privateKey,
+    remoteDir: test.workingDir,
+  });
+
+  const provider = new SettingViewProvider(context.extensionUri);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
-      ColorsViewProvider.viewType,
+      SettingViewProvider.viewType,
       provider
     )
   );
