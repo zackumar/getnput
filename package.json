@@ -23,7 +23,7 @@
       {
         "command": "getnput.put",
         "category": "GetNPut",
-        "title": "Put Current File on Remote Server"
+        "title": "Put on Remote Server"
       },
       {
         "command": "getnput.refresh",
@@ -32,10 +32,10 @@
         "icon": "$(refresh)"
       },
       {
-        "command": "getnput.test",
-        "title": "Test",
+        "command": "getnput.get",
+        "title": "Get from Remote Server",
         "category": "GetNPut",
-        "icon": "$(refresh)"
+        "icon": "$(arrow-down)"
       }
     ],
     "viewsContainers": {
@@ -62,11 +62,28 @@
       ]
     },
     "menus": {
+      "explorer/context": [
+        {
+          "command": "getnput.put",
+          "group": "getnput"
+        },
+        {
+          "command": "getnput.get",
+          "group": "getnput"
+        }
+      ],
       "view/title": [
         {
           "command": "getnput.refresh",
           "when": "view == sftpExplorer",
           "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "getnput.get",
+          "when": "view == sftpExplorer && viewItem == sftpNode",
+          "group": "inline"
         }
       ]
     }

@@ -1,19 +1,16 @@
 import path = require('path');
 import * as vscode from 'vscode';
-import { SftpModel, SftpModelProps, SftpNode } from './sftpModel';
+import { SftpModel, SftpNode } from './sftpModel';
 
 export class RemoteFileSystemProvider
   implements vscode.TreeDataProvider<SftpNode>
 {
-  private model: SftpModel;
   private _onDidChangeTreeData: vscode.EventEmitter<any> =
     new vscode.EventEmitter<any>();
   readonly onDidChangeTreeData: vscode.Event<any> =
     this._onDidChangeTreeData.event;
 
-  constructor(context: vscode.ExtensionContext) {
-    this.model = new SftpModel(context);
-  }
+  constructor(private model: SftpModel) {}
 
   public refresh(): any {
     this._onDidChangeTreeData.fire(undefined);
@@ -21,6 +18,7 @@ export class RemoteFileSystemProvider
 
   getTreeItem(element: SftpNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
     return {
+      contextValue: 'sftpNode',
       resourceUri: element.resource,
       collapsibleState: element.isDirectory
         ? vscode.TreeItemCollapsibleState.Collapsed
@@ -45,8 +43,8 @@ export class RemoteFileSystemProvider
 export class RemoteFileExplorer {
   treeDataProvider: RemoteFileSystemProvider;
 
-  constructor(context: vscode.ExtensionContext, props: SftpModelProps) {
-    this.treeDataProvider = new RemoteFileSystemProvider(context);
+  constructor(context: vscode.ExtensionContext, model: SftpModel) {
+    this.treeDataProvider = new RemoteFileSystemProvider(model);
     context.subscriptions.push(
       vscode.window.createTreeView('sftpExplorer', {
         treeDataProvider: this.treeDataProvider,
