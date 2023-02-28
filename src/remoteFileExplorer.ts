@@ -11,8 +11,8 @@ export class RemoteFileSystemProvider
   readonly onDidChangeTreeData: vscode.Event<any> =
     this._onDidChangeTreeData.event;
 
-  constructor(props: SftpModelProps) {
-    this.model = new SftpModel(props);
+  constructor(context: vscode.ExtensionContext) {
+    this.model = new SftpModel(context);
   }
 
   public refresh(): any {
@@ -46,7 +46,7 @@ export class RemoteFileExplorer {
   treeDataProvider: RemoteFileSystemProvider;
 
   constructor(context: vscode.ExtensionContext, props: SftpModelProps) {
-    this.treeDataProvider = new RemoteFileSystemProvider(props);
+    this.treeDataProvider = new RemoteFileSystemProvider(context);
     context.subscriptions.push(
       vscode.window.createTreeView('sftpExplorer', {
         treeDataProvider: this.treeDataProvider,

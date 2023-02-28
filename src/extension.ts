@@ -3,10 +3,11 @@
 import * as vscode from 'vscode';
 import Client = require('ssh2-sftp-client');
 import path = require('path');
-import * as test from './test';
 import { RemoteFileExplorer } from './remotefileexplorer';
 import { SettingViewProvider } from './settings';
-import { getHosts, SftpModel } from './sftpModel';
+import { SftpModel, SftpModelProps } from './sftpModel';
+import { readFileSync } from 'fs';
+import { off } from 'process';
 
 let putStatusBarItem: vscode.StatusBarItem;
 let getStatusBarItem: vscode.StatusBarItem;
@@ -15,25 +16,36 @@ const sftp = new Client('getnput');
 
 let model: SftpModel;
 
+export function getSftpConfig(
+  context: vscode.ExtensionContext
+): SftpModelProps {
+  const privateKeyValue = context.workspaceState.get('getnput.privateKey');
+  const privateKey = privateKeyValue
+    ? readFileSync(privateKeyValue as string)
+    : undefined;
+
+  const config = {
+    host: context.workspaceState.get('getnput.host') as string,
+    port: context.workspaceState.get('getnput.port') as number,
+    username: context.workspaceState.get('getnput.username') as string,
+    password: context.workspaceState.get('getnput.password') as string,
+    privateKey,
+    passphrase: context.workspaceState.get('getnput.passphrase') as string,
+    remoteDir: context.workspaceState.get('getnput.remoteDir') as string,
+  };
+
+  return config;
+}
+
 export function activate(context: vscode.ExtensionContext) {
-  context.workspaceState.update('getnput.host', test.host);
-  const host = context.workspaceState.get('getnput.host') as string;
+  model = new SftpModel(context);
 
-  model = new SftpModel({
-    host: host,
-    username: test.username,
-    privateKey: test.privateKey,
-    remoteDir: test.workingDir,
-  });
+  const remoteFileExplorer = new RemoteFileExplorer(
+    context,
+    getSftpConfig(context)
+  );
 
-  const remoteFileExplorer = new RemoteFileExplorer(context, {
-    host: host,
-    username: test.username,
-    privateKey: test.privateKey,
-    remoteDir: test.workingDir,
-  });
-
-  const provider = new SettingViewProvider(context.extensionUri);
+  const provider = new SettingViewProvider(context);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -46,12 +58,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('getnput.cwd', async () => {
-      await sftp.connect({
-        host: test.host,
-        username: test.username,
-        password: test.password,
-        privateKey: test.privateKey,
-      });
+      await sftp.connect(getSftpConfig(context));
 
       try {
         const cwd = await sftp.cwd();
@@ -74,19 +81,17 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      await sftp.connect({
-        host: test.host,
-        username: test.username,
-        password: test.password,
-        privateKey: test.privateKey,
-      });
+      await sftp.connect(getSftpConfig(context));
 
       const relative = path.relative(
         vscode.workspace.workspaceFolders![0].uri.path,
         vscode.window.activeTextEditor?.document.uri.path ?? ''
       );
 
-      const remoteDir = path.join(test.workingDir, relative);
+      const remoteDir = path.join(
+        context.workspaceState.get('getnput.remoteDir') as string,
+        relative
+      );
 
       console.log(
         'Putting:',

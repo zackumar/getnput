@@ -4,6 +4,7 @@ import path = require('path');
 import { readFileSync } from 'fs';
 const sshConfig = require('ssh-config');
 import os = require('os');
+import { getSftpConfig } from './extension';
 
 export interface SftpNode {
   resource: vscode.Uri;
@@ -19,9 +20,9 @@ export class SftpModel {
 
   private remoteDir: string;
 
-  constructor(props: SftpModelProps) {
-    this.props = props;
-    this.remoteDir = props.remoteDir ?? '/';
+  constructor(context: vscode.ExtensionContext) {
+    this.props = getSftpConfig(context);
+    this.remoteDir = this.props.remoteDir ?? '/';
   }
 
   public async connect() {
@@ -42,8 +43,6 @@ export class SftpModel {
   }
 
   public async getChildren(node: SftpNode) {
-    console.log(node);
-
     const client = await this.connect();
     const list = await client.list(
       path.join(this.remoteDir, node.resource.fsPath)
