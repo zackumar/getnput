@@ -1,7 +1,16 @@
 import * as vscode from 'vscode';
 import Client = require('ssh2-sftp-client');
 import path = require('path');
-import { existsSync, lstatSync, mkdirSync, readFileSync } from 'fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  rmdirSync,
+  rmSync,
+  unlinkSync,
+} from 'fs';
+import { isEmptyDir } from './utils';
 
 export interface SftpNode {
   resource: vscode.Uri;
@@ -12,14 +21,49 @@ export interface SftpModelProps extends Client.ConnectOptions {
   remoteDir: string;
 }
 
+const TEMP_DIR = '.getnput';
+
 export class SftpModel {
   private props: SftpModelProps;
 
   private remoteDir: string;
 
+  private remoteFiles: vscode.Uri[] = [];
+
   constructor(private context: vscode.ExtensionContext) {
     this.props = getSftpConfig(context);
     this.remoteDir = this.props.remoteDir ?? '/';
+
+    //Handle remote file changes
+    vscode.workspace.onDidCloseTextDocument(async (document) => {
+      this.remoteFiles.forEach(async (uri) => {
+        if (document.uri.path === uri.path) {
+          try {
+            console.log('Closing file:', uri.path);
+            unlinkSync(uri.path);
+            if (await isEmptyDir(path.dirname(uri.path))) {
+              rmdirSync(path.dirname(uri.path));
+            }
+
+            this.remoteFiles = this.remoteFiles.filter((item) => {
+              return item.path !== uri.path;
+            });
+
+            console.log(this.remoteFiles);
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      });
+    });
+
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      this.remoteFiles.forEach(async (uri) => {
+        if (document.uri.path === uri.path) {
+          this.put(uri.path, true);
+        }
+      });
+    });
   }
 
   public async connect() {
@@ -56,52 +100,98 @@ export class SftpModel {
     });
   }
 
-  public async put(filePath: string) {
-    const sftp = await this.connect();
+  public async put(filePath: string, isTemp = false) {
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: 'Getting file...',
+      },
+      async () => {
+        const sftp = await this.connect();
 
-    const relative = path.relative(
-      vscode.workspace.workspaceFolders![0].uri.path,
-      filePath
-    );
+        const relative = !isTemp
+          ? path.relative(
+              vscode.workspace.workspaceFolders![0].uri.path,
+              filePath
+            )
+          : path.relative(
+              path.join(
+                vscode.workspace.workspaceFolders![0].uri.path,
+                TEMP_DIR
+              ),
+              filePath
+            );
 
-    const remotePath = path.join(this.remoteDir, relative);
+        const remotePath = path.join(this.remoteDir, relative);
 
-    console.log(lstatSync(filePath).isDirectory(), filePath);
+        if (lstatSync(filePath).isDirectory()) {
+          await sftp.uploadDir(filePath, remotePath);
+        } else {
+          if (!(await sftp.exists(path.dirname(remotePath)))) {
+            await sftp.mkdir(path.dirname(remotePath), true);
+          }
 
-    if (lstatSync(filePath).isDirectory()) {
-      await sftp.uploadDir(filePath, remotePath);
-    } else {
-      if (!(await sftp.exists(path.dirname(remotePath)))) {
-        await sftp.mkdir(path.dirname(remotePath), true);
+          await sftp.put(filePath, remotePath);
+        }
+
+        return await sftp.end();
       }
-
-      await sftp.put(filePath, remotePath);
-    }
-
-    await sftp.end();
+    );
   }
 
-  public async get(filePath: string) {
-    const sftp = await this.connect();
+  public async get(filePath: string, dest?: string) {
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: 'Getting file...',
+      },
+      async () => {
+        const sftp = await this.connect();
 
-    const remotePath = path.join(this.remoteDir, filePath);
-    const localPath = path.join(
+        const remotePath = path.join(this.remoteDir, filePath);
+        const localPath = path.join(
+          vscode.workspace.workspaceFolders![0].uri.path,
+          filePath
+        );
+
+        if ((await sftp.stat(remotePath)).isDirectory) {
+          await sftp.downloadDir(remotePath, localPath);
+        } else {
+          if (!existsSync(path.dirname(dest ?? localPath))) {
+            mkdirSync(path.dirname(dest ?? localPath), { recursive: true });
+          }
+          await sftp.get(remotePath, dest ?? localPath);
+        }
+
+        return await sftp.end();
+      }
+    );
+  }
+
+  public async openRemoteFile(filePath: string) {
+    const newFilePath = path.join(
       vscode.workspace.workspaceFolders![0].uri.path,
+      TEMP_DIR,
       filePath
     );
+    const uri = vscode.Uri.file(newFilePath);
 
-    console.log(filePath, remotePath);
+    await this.get(filePath, newFilePath);
+    await vscode.window.showTextDocument(uri, { preview: false });
 
-    if ((await sftp.stat(remotePath)).isDirectory) {
-      await sftp.downloadDir(remotePath, localPath);
-    } else {
-      if (!existsSync(path.dirname(localPath))) {
-        mkdirSync(path.dirname(localPath), { recursive: true });
-      }
-      await sftp.get(remotePath, localPath);
+    this.remoteFiles.push(uri);
+    console.log(this.remoteFiles);
+  }
+
+  public async cleanTempDir() {
+    const tempDir = path.join(
+      vscode.workspace.workspaceFolders![0].uri.path,
+      TEMP_DIR
+    );
+
+    if (existsSync(tempDir)) {
+      rmSync(tempDir, { recursive: true });
     }
-
-    await sftp.end();
   }
 }
 

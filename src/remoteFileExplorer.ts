@@ -23,6 +23,13 @@ export class RemoteFileSystemProvider
       collapsibleState: element.isDirectory
         ? vscode.TreeItemCollapsibleState.Collapsed
         : void 0,
+      command: element.isDirectory
+        ? void 0
+        : {
+            title: 'Open Remote File',
+            command: 'getnput.openRemoteFile',
+            arguments: [element.resource],
+          },
     };
   }
   getChildren(
@@ -53,6 +60,13 @@ export class RemoteFileExplorer {
 
     vscode.commands.registerCommand('getnput.refresh', () =>
       this.treeDataProvider.refresh()
+    );
+
+    vscode.commands.registerCommand(
+      'getnput.openRemoteFile',
+      async (resource) => {
+        await model.openRemoteFile(resource.path);
+      }
     );
   }
 

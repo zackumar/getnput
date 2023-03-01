@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('getnput.cwd', async () => {
+    vscode.commands.registerCommand('getnput.cwd', async (resource) => {
       const sftp = await model.connect();
 
       try {
@@ -44,8 +44,6 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand(
       'getnput.put',
       async (resource: vscode.Uri) => {
-        console.log(resource);
-
         if (vscode.window.activeTextEditor === undefined) {
           vscode.window.showErrorMessage('GetNPut: No file open');
           return;
@@ -80,18 +78,14 @@ export function activate(context: vscode.ExtensionContext) {
           remoteDir
         );
 
-        vscode.window.showInformationMessage(
-          `Putting: ${relative} at ${remoteDir}`
-        );
-
         try {
           await model.put(
             resource
               ? resource.fsPath
               : vscode.window.activeTextEditor?.document.uri.path
           );
-          vscode.window.showInformationMessage(`Put ${relative}`);
 
+          vscode.window.showInformationMessage(`Put ${relative}`);
           remoteFileExplorer.refresh();
         } catch (err: any) {
           console.log(err);
@@ -131,13 +125,10 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      vscode.window.showInformationMessage(`Getting: ${filePath}`);
-
       try {
         await model.get(
           filePath ?? vscode.window.activeTextEditor?.document.uri.path ?? ''
         );
-
         vscode.window.showInformationMessage(`Got ${filePath}`);
       } catch (err: any) {
         console.log(err);
@@ -170,4 +161,6 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+  model.cleanTempDir();
+}
