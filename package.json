@@ -3,6 +3,7 @@
   "displayName": "GetNPut",
   "description": "Dreamweaver's Get and Put feature. But on VSCode!",
   "version": "1.0.0",
+  "publisher": "zackumar",
   "repository": {
     "type": "git",
     "url": "https://github.com/zackumar/getnput.git"
