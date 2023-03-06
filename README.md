@@ -1,4 +1,4 @@
-# getnput README
+# GetNPut
 
 Dreamweaver's Get and Put feature. But on VSCode!
 
@@ -14,3 +14,7 @@ Initial release of GetNPut
 
 - Get, Put, and Delete commands
 - Remote file explorer
+
+### 1.0.1
+
+- Fixed README.md
