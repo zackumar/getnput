@@ -10,16 +10,11 @@
     "Other"
   ],
   "activationEvents": [
-    "*"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-      {
-        "command": "getnput.cwd",
-        "category": "GetNPut",
-        "title": "Get Remote Server Curret Working Directory"
-      },
       {
         "command": "getnput.put",
         "category": "GetNPut",
@@ -27,7 +22,7 @@
       },
       {
         "command": "getnput.refresh",
-        "title": "Refresh",
+        "title": "Refresh Remote Server Explorer",
         "category": "GetNPut",
         "icon": "$(refresh)"
       },
@@ -36,6 +31,11 @@
         "title": "Get from Remote Server",
         "category": "GetNPut",
         "icon": "$(arrow-down)"
+      },
+      {
+        "command": "getnput.delete",
+        "title": "Delete from Remote Server",
+        "category": "GetNPut"
       }
     ],
     "viewsContainers": {
@@ -52,7 +52,8 @@
         {
           "type": "tree",
           "id": "sftpExplorer",
-          "name": "Remote Explorer"
+          "name": "Remote Explorer",
+          "when": "getnput.connected == true"
         },
         {
           "type": "webview",
@@ -62,6 +63,12 @@
       ]
     },
     "menus": {
+      "commandPalette": [
+        {
+          "command": "getnput.delete",
+          "when": "false"
+        }
+      ],
       "explorer/context": [
         {
           "command": "getnput.put",
@@ -84,6 +91,10 @@
           "command": "getnput.get",
           "when": "view == sftpExplorer && viewItem == sftpNode",
           "group": "inline"
+        },
+        {
+          "command": "getnput.delete",
+          "when": "view == sftpExplorer && viewItem == sftpNode"
         }
       ]
     }

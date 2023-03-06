@@ -12,8 +12,7 @@ type ConnectionProps =
       remoteDir: string;
       authType: 'password' | 'privateKey';
     }
-  | { type: 'filePicker' }
-  | { type: 'disconnect' };
+  | { type: 'filePicker' | 'disconnect' | 'edit' };
 
 export class SettingViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'sftpSettings';
@@ -71,6 +70,11 @@ export class SettingViewProvider implements vscode.WebviewViewProvider {
               webviewView.webview
             );
 
+            vscode.commands.executeCommand(
+              'setContext',
+              'getnput.connected',
+              true
+            );
             vscode.commands.executeCommand('getnput.refresh');
 
             break;
@@ -83,8 +87,19 @@ export class SettingViewProvider implements vscode.WebviewViewProvider {
               });
             }
             break;
+          case 'edit':
+            webviewView.webview.html = this._getHtmlForWebview(
+              webviewView.webview,
+              true
+            );
+            break;
           case 'disconnect':
             console.log('disconnecting...');
+            vscode.commands.executeCommand(
+              'setContext',
+              'getnput.connected',
+              false
+            );
 
             this.context.workspaceState.update('getnput.host', undefined);
             this.context.workspaceState.update('getnput.port', undefined);
@@ -104,7 +119,7 @@ export class SettingViewProvider implements vscode.WebviewViewProvider {
     );
   }
 
-  private _getHtmlForWebview(webview: vscode.Webview) {
+  private _getHtmlForWebview(webview: vscode.Webview, edit = false) {
     const styleVSCodeUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, 'media', 'vscode.css')
     );
@@ -143,13 +158,17 @@ export class SettingViewProvider implements vscode.WebviewViewProvider {
       </head>
       <body>
         ${
-          !this.context.workspaceState.get('getnput.host')
+          !this.context.workspaceState.get('getnput.host') || edit
             ? `
         <form id="connectForm">
           <label for="host">Host:</label>
-          <input id="host" type="text" name="host" placeholder="Host" required/>
+          <input id="host" type="text" name="host" placeholder="Host" value="${
+            edit ? this.context.workspaceState.get('getnput.host') ?? '' : ''
+          }" required/>
           <label for="port">Port:</label>
-          <input id="port" type="text" name="port" placeholder="Port" value="22" />
+          <input id="port" type="text" name="port" placeholder="Port" value="${
+            edit ? this.context.workspaceState.get('getnput.port') ?? '' : '22'
+          }" />
           <div class="py-5">
             <p>Authentication Method:</p>
             <div class="row">
@@ -163,33 +182,59 @@ export class SettingViewProvider implements vscode.WebviewViewProvider {
           </div>
           <div class="auth">
             <label for="user">Username:</label>
-            <input id="user" type="text" name="user" placeholder="Username" required/>
+            <input id="user" type="text" name="user" placeholder="Username" value="${
+              edit
+                ? this.context.workspaceState.get('getnput.username') ?? ''
+                : ''
+            }" required/>
             <div id="passwordSection" disabled>
               <label for="password" class="authPadding">Password:</label>
-              <input id="password" type="password" name="password" placeholder="Password" required/>
+              <input id="password" type="text" name="password" placeholder="Password" value="${
+                edit
+                  ? this.context.workspaceState.get('getnput.password') ?? ''
+                  : ''
+              }" required/>
             </div>
             <div id="privateKeySection" hidden>
               <label for="privateKey" class="authPadding">Private Key:</label>
               <div class="row">
-                <input id="privateKey" type="text" name="privateKey" placeholder="Private Key" required disabled/>
+                <input id="privateKey" type="text" name="privateKey" placeholder="Private Key" required value="${
+                  edit
+                    ? this.context.workspaceState.get('getnput.privateKey') ??
+                      ''
+                    : ''
+                }" disabled/>
                 <button id="filePicker" type="button" class="icon" style="width: 25%;height: 28px;"><i class="codicon codicon-folder" alt="open file"></i></button>
               </div>
               <label for="passphrase" class="authPadding">Passphrase:</label>
-              <input id="passphrase" type="password" name="passphrase" placeholder="Passphrase" disabled/>
+              <input id="passphrase" type="password" name="passphrase" placeholder="Passphrase" value="${
+                edit
+                  ? this.context.workspaceState.get('getnput.passphrase') ?? ''
+                  : ''
+              }" disabled/>
             </div>
           </div>
           <label for="remoteDir">Remote working directory:</label>
-          <input id="remoteDir" type="text" name="remoteDir" placeholder="Remote directory" required/>
+          <input id="remoteDir" type="text" name="remoteDir" placeholder="Remote directory" value="${
+            edit
+              ? this.context.workspaceState.get('getnput.remoteDir') ?? ''
+              : ''
+          }" required/>
           <button id="submit" type="submit">Submit</button>
           </div>
         </form>
         <script defer nonce="${nonce}" src="${scriptConnectUri}"></script>`
             : `
         <h1>Connected!</h1>
-        <p>Host: ${this.context.workspaceState.get('getnput.host')}</p>
-        <p>Remote dir: ${this.context.workspaceState.get('getnput.remoteDir')}
+        <h3>Host:</h3>
+        <p>${this.context.workspaceState.get('getnput.host')}</p>
+        <h3>Remote directory:</h3>
+        <p>${this.context.workspaceState.get('getnput.remoteDir')}
         </p>
-        <button id="disconnect">Disconnect</button>
+        <div class="row">
+          <button id="edit">Edit</button>
+          <button id="disconnect">Disconnect</button>
+        </div>
         <script defer nonce="${nonce}" src="${scriptDisconnectUri}"></script>
         `
         }

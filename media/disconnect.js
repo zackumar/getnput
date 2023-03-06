@@ -6,4 +6,10 @@
       type: 'disconnect',
     });
   });
+
+  document.getElementById('edit').addEventListener('click', (e) => {
+    vscode.postMessage({
+      type: 'edit',
+    });
+  });
 })();

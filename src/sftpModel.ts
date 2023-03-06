@@ -48,8 +48,6 @@ export class SftpModel {
             this.remoteFiles = this.remoteFiles.filter((item) => {
               return item.path !== uri.path;
             });
-
-            console.log(this.remoteFiles);
           } catch (e) {
             console.error(e);
           }
@@ -101,14 +99,17 @@ export class SftpModel {
   }
 
   public async put(filePath: string, isTemp = false) {
+    const sftp = await this.connect();
+    if (!sftp) {
+      return;
+    }
+
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: 'Getting file...',
+        title: 'Putting file...',
       },
       async () => {
-        const sftp = await this.connect();
-
         const relative = !isTemp
           ? path.relative(
               vscode.workspace.workspaceFolders![0].uri.path,
@@ -140,14 +141,17 @@ export class SftpModel {
   }
 
   public async get(filePath: string, dest?: string) {
+    const sftp = await this.connect();
+    if (!sftp) {
+      return;
+    }
+
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
         title: 'Getting file...',
       },
       async () => {
-        const sftp = await this.connect();
-
         const remotePath = path.join(this.remoteDir, filePath);
         const localPath = path.join(
           vscode.workspace.workspaceFolders![0].uri.path,
@@ -168,6 +172,30 @@ export class SftpModel {
     );
   }
 
+  public async delete(node: SftpNode) {
+    const sftp = await this.connect();
+    if (!sftp) {
+      return;
+    }
+
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: 'Getting file...',
+      },
+      async () => {
+        const remotePath = path.join(this.remoteDir, node.resource.path);
+        if (node.isDirectory) {
+          await sftp.rmdir(remotePath, true);
+        } else {
+          await sftp.delete(remotePath);
+        }
+
+        return await sftp.end();
+      }
+    );
+  }
+
   public async openRemoteFile(filePath: string) {
     const newFilePath = path.join(
       vscode.workspace.workspaceFolders![0].uri.path,
@@ -180,7 +208,6 @@ export class SftpModel {
     await vscode.window.showTextDocument(uri, { preview: false });
 
     this.remoteFiles.push(uri);
-    console.log(this.remoteFiles);
   }
 
   public async cleanTempDir() {
@@ -192,6 +219,10 @@ export class SftpModel {
     if (existsSync(tempDir)) {
       rmSync(tempDir, { recursive: true });
     }
+  }
+
+  public hasHost() {
+    return !!this.context.workspaceState.get('getnput.host');
   }
 }
 

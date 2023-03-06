@@ -52,11 +52,10 @@ export class RemoteFileExplorer {
 
   constructor(context: vscode.ExtensionContext, model: SftpModel) {
     this.treeDataProvider = new RemoteFileSystemProvider(model);
-    context.subscriptions.push(
-      vscode.window.createTreeView('sftpExplorer', {
-        treeDataProvider: this.treeDataProvider,
-      })
-    );
+    const view = vscode.window.createTreeView('sftpExplorer', {
+      treeDataProvider: this.treeDataProvider,
+    });
+    context.subscriptions.push(view);
 
     vscode.commands.registerCommand('getnput.refresh', () =>
       this.treeDataProvider.refresh()
@@ -67,6 +66,36 @@ export class RemoteFileExplorer {
       async (resource) => {
         await model.openRemoteFile(resource.path);
       }
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand(
+        'getnput.delete',
+        async (node: SftpNode) => {
+          const ans = await vscode.window.showInformationMessage(
+            `Do you want to delete remote ${
+              !node.isDirectory ? 'file' : 'directory'
+            }? This cannot be undone.`,
+            'Yes',
+            'No'
+          );
+
+          if (ans !== 'Yes') {
+            return;
+          }
+
+          try {
+            await model.delete(node);
+            vscode.window.showInformationMessage(
+              `Deleted ${node.resource.path}`
+            );
+            this.refresh();
+          } catch (err: any) {
+            console.log(err);
+            vscode.window.showErrorMessage(`Error: ${err.message}`);
+          }
+        }
+      )
     );
   }
 

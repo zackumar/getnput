@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import path = require('path');
 import { RemoteFileExplorer } from './remotefileexplorer';
 import { SettingViewProvider } from './settings';
-import { SftpModel, SftpNode } from './sftpModel';
+import { SftpModel } from './sftpModel';
 
 let putStatusBarItem: vscode.StatusBarItem;
 let getStatusBarItem: vscode.StatusBarItem;
@@ -11,6 +11,9 @@ let model: SftpModel;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('GetNPut is now active!');
+  if (!!context.workspaceState.get('getnput.host')) {
+    vscode.commands.executeCommand('setContext', 'getnput.connected', true);
+  }
 
   model = new SftpModel(context);
 
@@ -20,24 +23,6 @@ export function activate(context: vscode.ExtensionContext) {
       SettingViewProvider.viewType,
       new SettingViewProvider(context)
     )
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('getnput.cwd', async (resource) => {
-      const sftp = await model.connect();
-
-      try {
-        const cwd = await sftp.cwd();
-        vscode.window.showInformationMessage(
-          `Current working directory: ${cwd}`
-        );
-      } catch (err: any) {
-        vscode.window.showErrorMessage(`Error: ${err.message}`);
-        console.log(err);
-      } finally {
-        await sftp.end();
-      }
-    })
   );
 
   context.subscriptions.push(
@@ -113,8 +98,6 @@ export function activate(context: vscode.ExtensionContext) {
         );
       }
 
-      console.log(filePath);
-
       const ans = await vscode.window.showInformationMessage(
         `Do you want to write local file? Will overwrite existing files.`,
         'Yes',
@@ -162,5 +145,5 @@ export function activate(context: vscode.ExtensionContext) {
 
 // This method is called when your extension is deactivated
 export function deactivate() {
-  model.cleanTempDir();
+  return model.cleanTempDir();
 }
